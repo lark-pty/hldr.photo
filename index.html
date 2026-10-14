@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HLDR.PHOTO | Interactive Photographer Portfolio</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        obsidian: '#0a0a0c',
+                        charcoal: '#121318',
+                        leicaRed: '#e60012',
+                        amberGold: '#f59e0b',
+                        cyanHud: '#00f0ff',
+                        lensAmber: 'rgba(245, 158, 11, 0.15)'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'Space Mono', 'monospace']
+                    },
+                    boxShadow: {
+                        'hud-glow': '0 0 20px rgba(0, 240, 255, 0.35)',
+                        'red-glow': '0 0 15px rgba(230, 0, 18, 0.5)',
+                        'lens-ring': 'inset 0 0 25px rgba(0,0,0,0.8), 0 0 30px rgba(245, 158, 11, 0.2)'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts & Font Awesome Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Web Audio API Synthesizer & Canvas animations stylesheet -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0a0a0c;
+            color: #f3f4f6;
+            overflow-x: hidden;
+        }
+
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Background Animated Canvas Overlay */
+        #bokeh-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Glassmorphism panel styles */
+        .glass-panel {
+            background: rgba(18, 19, 24, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-hud {
+            background: rgba(10, 10, 12, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+        }
+
+        /* Camera Lens Ring Dynamic Rotation */
+        .lens-ring-rotate {
+            transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .mode-dial-rotate {
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Glowing Pulse Animations */
+        @keyframes hudPulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.9; }
+        }
+
+        .animate-hud-pulse {
+            animation: hudPulse 3s infinite ease-in-out;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0a0a0c;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #27272a;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00f0ff;
+        }
+
+        /* Interactive hotspot tooltip styling */
+        .hotspot-point {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+            z-index: 25;
+        }
+
+        /* Aperture Blade animation simulation */
+        .aperture-blade {
+            transform-origin: center;
+            transition: all 0.4s ease;
+        }
+
+        .lens-group:hover .aperture-blade {
+            stroke: #f59e0b;
+        }
+    </style>
+</head>
+<body class="bg-obsidian text-gray-100 min-h-screen relative flex flex-col justify-between selection:bg-cyanHud selection:text-black">
+
+    <!-- Floating Bokeh Canvas -->
+    <canvas id="bokeh-canvas"></canvas>
+
+    <!-- Top Navigation HUD Bar -->
+    <header class="sticky top-0 z-50 glass-panel border-b border-white/10 px-4 lg:px-8 py-3.5">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <!-- Brand Logo -->
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="switchSection('camera-hub')">
+                <div class="relative w-9 h-9 rounded-full bg-leicaRed flex items-center justify-center font-black text-white text-xs tracking-tighter shadow-red-glow">
+                    L
+                    <div class="absolute inset-0 rounded-full border border-white/30 animate-ping opacity-25"></div>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-widest text-white uppercase font-mono leading-none">HLDR.PHOTO</h1>
+                    <p class="text-[10px] text-gray-400 font-mono tracking-wider">VISUAL ARCHITECT & PHOTOGRAPHY</p>
+                </div>
+            </div>
+
+            <!-- Audio & Interactive HUD Controls -->
+            <div class="flex items-center space-x-4">
+                <!-- Camera Sound Effects Toggle -->
+                <button id="sound-toggle-btn" onclick="toggleAudio()" class="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono transition-all">
+                    <i id="sound-icon" class="fas fa-volume-up text-cyanHud"></i>
+                    <span id="sound-text" class="hidden sm:inline text-gray-300">SHUTTER AUDIO: ON</span>
+                </button>
+
+                <!-- Navigation Quick Pills -->
+                <nav class="hidden md:flex items-center space-x-1 bg-black/40 p-1 rounded-full border border-white/10 text-xs font-mono">
+                    <button onclick="switchSection('camera-hub')" class="nav-btn px-4 py-1.5 rounded-full text-gray-300 hover:text-white transition-all" data-target="camera-hub">
+                        <i class="fas fa-camera text-cyanHud mr-1.5"></i>CAMERA HUD
+                    </button>
+                    <button onclick="switchSection('portfolio')" class="nav-btn px-4 py-1.5 rounded-full text-gray-300 hover:text-white transition-all" data-target="portfolio">
+                        <i class="fas fa-compact-disc text-amberGold mr-1.5"></i>PORTFOLIO
+                    </button>
+                    <button onclick="switchSection('about')" class="nav-btn px-4 py-1.5 rounded-full text-gray-300 hover:text-white transition-all" data-target="about">
+                        <i class="fas fa-sliders-h text-cyanHud mr-1.5"></i>ABOUT & GEAR
+                    </button>
+                    <button onclick="switchSection('contact')" class="nav-btn px-4 py-1.5 rounded-full text-gray-300 hover:text-white transition-all" data-target="contact">
+                        <i class="fas fa-bolt text-leicaRed mr-1.5"></i>CONTACT
+                    </button>
+                </nav>
+
+                <!-- Mobile Menu Button -->
+                <button onclick="toggleMobileNav()" class="md:hidden p-2 rounded-lg bg-white/5 border border-white/10 text-gray-200">
+                    <i class="fas fa-bars text-lg"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Navigation Menu Dropdown -->
+        <div id="mobile-nav" class="hidden md:hidden mt-3 pt-3 border-t border-white/10 flex flex-col space-y-2 text-xs font-mono">
+            <button onclick="switchSection('camera-hub'); toggleMobileNav();" class="text-left px-4 py-2 rounded-lg bg-white/5 text-cyanHud">
+                <i class="fas fa-camera mr-2"></i>CAMERA HUD MENU
+            </button>
+            <button onclick="switchSection('portfolio'); toggleMobileNav();" class="text-left px-4 py-2 rounded-lg bg-white/5 text-amberGold">
+                <i class="fas fa-compact-disc mr-2"></i>PORTFOLIO (LENS APERTURE)
+            </button>
+            <button onclick="switchSection('about'); toggleMobileNav();" class="text-left px-4 py-2 rounded-lg bg-white/5 text-cyanHud">
+                <i class="fas fa-sliders-h mr-2"></i>ABOUT ME (MODE DIAL)
+            </button>
+            <button onclick="switchSection('contact'); toggleMobileNav();" class="text-left px-4 py-2 rounded-lg bg-white/5 text-leicaRed">
+                <i class="fas fa-bolt mr-2"></i>CONTACT (SHUTTER BUTTON)
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Interactive Content Container -->
+    <main class="relative z-10 flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col justify-center">
+
+        <!-- ================= SECTION 1: INTERACTIVE CAMERA HUD ================= -->
+        <section id="section-camera-hub" class="main-section space-y-6 transition-all duration-500">
+            <!-- HUD Status Header -->
+            <div class="flex flex-col sm:flex-row items-center justify-between bg-charcoal/80 border border-white/10 p-4 rounded-2xl gap-4">
+                <div class="flex items-center space-x-3">
+                    <div class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></div>
+                    <span class="font-mono text-xs text-gray-300">SYSTEM: <span class="text-cyanHud font-semibold">INTERACTIVE CAMERA HU-01 READY</span></span>
+                </div>
+                <div class="flex items-center space-x-6 text-xs font-mono text-gray-400">
+                    <div>MODE: <span id="current-mode-display" class="text-amberGold font-bold">PORTFOLIO [M]</span></div>
+                    <div>ISO: <span class="text-white">100</span></div>
+                    <div>SPOOL: <span class="text-emerald-400">RAW 14-BIT</span></div>
+                    <div>BATTERY: <span class="text-cyanHud">98%</span></div>
+                </div>
+            </div>
+
+            <!-- Interactive Camera Overlay Diagram Viewport -->
+            <div class="relative w-full rounded-3xl border border-cyanHud/20 bg-black/60 p-4 sm:p-8 shadow-2xl overflow-hidden flex flex-col items-center justify-center min-h-[480px] lg:min-h-[560px]">
+                
+                <!-- Viewfinder Grid Lines Overlay -->
+                <div class="absolute inset-0 pointer-events-none opacity-20 bg-[linear-gradient(to_right,#00f0ff_1px,transparent_1px),linear-gradient(to_bottom,#00f0ff_1px,transparent_1px)] bg-[size:4rem_4rem]"></div>
+                
+                <!-- Corner HUD Bracket Accents -->
+                <div class="absolute top-4 left-4 w-8 h-8 border-t-2 border-l-2 border-cyanHud/60"></div>
+                <div class="absolute top-4 right-4 w-8 h-8 border-t-2 border-r-2 border-cyanHud/60"></div>
+                <div class="absolute bottom-4 left-4 w-8 h-8 border-b-2 border-l-2 border-cyanHud/60"></div>
+                <div class="absolute bottom-4 right-4 w-8 h-8 border-b-2 border-r-2 border-cyanHud/60"></div>
+
+                <div class="text-center mb-4 z-20">
+                    <p class="text-xs font-mono text-cyanHud tracking-widest uppercase mb-1">INTERACTIVE HUD MENU</p>
+                    <h2 class="text-xl sm:text-2xl font-bold tracking-tight text-white">Tap or Hover Camera Parts to Navigate</h2>
+                </div>
+
+                <!-- SVG Interactive DSLR / Mirrorless Camera Structure -->
+                <div class="relative max-w-3xl w-full flex justify-center items-center my-2">
+                    <svg id="camera-svg" viewBox="0 0 900 600" class="w-full h-auto max-h-[460px] filter drop-shadow-[0_20px_30px_rgba(0,0,0,0.9)]">
+                        <defs>
+                            <!-- Metallic & Lens Gradients -->
+                            <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#2a2c33"/>
+                                <stop offset="50%" stop-color="#18191e"/>
+                                <stop offset="100%" stop-color="#0c0d10"/>
+                            </linearGradient>
+                            
+                            <linearGradient id="gripGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stop-color="#141518"/>
+                                <stop offset="50%" stop-color="#24262d"/>
+                                <stop offset="100%" stop-color="#101114"/>
+                            </linearGradient>
+
+                            <radialGradient id="lensGlass" cx="50%" cy="50%" r="50%">
+                                <stop offset="0%" stop-color="#1e293b"/>
+                                <stop offset="40%" stop-color="#0f172a"/>
+                                <stop offset="70%" stop-color="#020617"/>
+                                <stop offset="90%" stop-color="#00f0ff" stop-opacity="0.3"/>
+                                <stop offset="100%" stop-color="#f59e0b" stop-opacity="0.5"/>
+                            </radialGradient>
+
+                            <linearGradient id="goldRim" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#f59e0b"/>
+                                <stop offset="50%" stop-color="#d97706"/>
+                                <stop offset="100%" stop-color="#78350f"/>
+                            </linearGradient>
+
+                            <filter id="glow">
+                                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur"/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                            </filter>
+                        </defs>
+
+                        <!-- Camera Outer Body base -->
+                        <path d="M 200 180 L 320 180 L 350 120 L 550 120 L 580 180 L 700 180 C 730 180 750 200 750 230 L 750 480 C 750 510 730 530 700 530 L 200 530 C 170 530 150 510 150 480 L 150 230 C 150 200 170 180 200 180 Z" fill="url(#bodyGrad)" stroke="#374151" stroke-width="4" />
+
+                        <!-- Right Grip Texture -->
+                        <path d="M 150 230 C 150 200 170 180 200 180 L 260 180 L 260 530 L 200 530 C 170 530 150 510 150 480 Z" fill="url(#gripGrad)" opacity="0.9" />
+                        <pattern id="gripPattern" width="10" height="10" patternUnits="userSpaceOnUse">
+                            <circle cx="5" cy="5" r="1.5" fill="#000" opacity="0.6"/>
+                        </pattern>
+                        <path d="M 155 235 L 255 235 L 255 525 L 155 525 Z" fill="url(#gripPattern)"/>
+
+                        <!-- Hot Shoe / Flash Mount (Top Center) -->
+                        <g id="hot-shoe-group" class="cursor-pointer group" onclick="switchSection('contact')" onmouseenter="highlightPart('Flash Mount & Hotshoe: Contact Option')" onmouseleave="resetHighlight()">
+                            <rect x="410" y="95" width="80" height="25" rx="4" fill="#1f2937" stroke="#4b5563" stroke-width="2"/>
+                            <rect x="425" y="90" width="50" height="8" rx="2" fill="#374151"/>
+                            <circle cx="450" cy="107" r="4" fill="#e60012" class="group-hover:animate-ping"/>
+                        </g>
+
+                        <!-- Viewfinder Prism Housing (Top Center Peak) -->
+                        <g id="viewfinder-group" class="cursor-pointer group" onclick="switchSection('about')" onmouseenter="highlightPart('Viewfinder Prism: About & Philosophy')" onmouseleave="resetHighlight()">
+                            <polygon points="350,180 380,120 520,120 550,180" fill="#111827" stroke="#00f0ff" stroke-width="1.5" stroke-dasharray="4 2"/>
+                            <rect x="420" y="135" width="60" height="30" rx="4" fill="#030712" stroke="#00f0ff" stroke-width="2"/>
+                            <circle cx="450" cy="150" r="8" fill="#00f0ff" opacity="0.7" class="group-hover:scale-125 transition-transform origin-center"/>
+                        </g>
+
+                        <!-- Mode Dial Top Right -->
+                        <g id="mode-dial-group" class="cursor-pointer group" onclick="rotateModeDialAndNavigate()" onmouseenter="highlightPart('Mode Dial: Rotate to Change Main View')" onmouseleave="resetHighlight()">
+                            <rect x="600" y="150" width="70" height="30" rx="5" fill="#374151" stroke="#6b7280" stroke-width="2"/>
+                            <line x1="615" y1="150" x2="615" y2="180" stroke="#111827" stroke-width="3"/>
+                            <line x1="635" y1="150" x2="635" y2="180" stroke="#111827" stroke-width="3"/>
+                            <line x1="655" y1="150" x2="655" y2="180" stroke="#111827" stroke-width="3"/>
+                            <!-- Dial Rotating Marker -->
+                            <circle id="mode-dial-marker" cx="635" cy="165" r="5" fill="#f59e0b" class="mode-dial-rotate"/>
+                        </g>
+
+                        <!-- Shutter Button Top Left -->
+                        <g id="shutter-button-group" class="cursor-pointer group" onclick="triggerShutterAction()" onmouseenter="highlightPart('Shutter Release Button: Shoot Inquiry / Contact')" onmouseleave="resetHighlight()">
+                            <rect x="210" y="155" width="45" height="25" rx="6" fill="#9ca3af" stroke="#e5e7eb" stroke-width="2" class="group-hover:fill-cyanHud transition-colors"/>
+                            <circle cx="232" cy="167" r="12" fill="#d1d5db" />
+                            <circle cx="232" cy="167" r="8" fill="#e60012" class="group-hover:scale-110 transition-transform"/>
+                        </g>
+
+                        <!-- Red Leica Dot Accent -->
+                        <g transform="translate(280, 210)">
+                            <circle cx="20" cy="20" r="16" fill="#e60012" shadow="0 0 10px #e60012"/>
+                            <text x="20" y="24" font-family="sans-serif" font-weight="bold" font-size="10" fill="#ffffff" text-anchor="middle">HLDR.PHOTO</text>
+                        </g>
+
+                        <!-- Main Lens Barrel Base Assembly (Center) -->
+                        <g id="lens-assembly" class="lens-group cursor-pointer group" onclick="switchSection('portfolio')" onmouseenter="highlightPart('35mm F1.4 Lens Barrel: Open Portfolio Gallery')" onmouseleave="resetHighlight()">
+                            <!-- Outer Barrel Ring -->
+                            <circle cx="450" cy="350" r="165" fill="#111827" stroke="#374151" stroke-width="8"/>
+                            <circle id="outer-lens-ring" cx="450" cy="350" r="150" fill="#1f2937" stroke="url(#goldRim)" stroke-width="6" class="lens-ring-rotate"/>
+                            
+                            <!-- Focus Ring Ridges -->
+                            <circle cx="450" cy="350" r="135" fill="none" stroke="#374151" stroke-width="12" stroke-dasharray="6 4"/>
+                            
+                            <!-- Aperture Ring -->
+                            <circle cx="450" cy="350" r="115" fill="#0b0f19" stroke="#f59e0b" stroke-width="3"/>
+                            
+                            <!-- Glass Lens Reflection Base -->
+                            <circle cx="450" cy="350" r="95" fill="url(#lensGlass)" stroke="#00f0ff" stroke-width="2" class="group-hover:stroke-amberGold transition-colors"/>
+
+                            <!-- Simulated Aperture Blades -->
+                            <g id="aperture-blades" transform="translate(450, 350)">
+                                <polygon points="0,-75 25,-40 -25,-40" fill="none" stroke="#4b5563" stroke-width="2" class="aperture-blade"/>
+                                <polygon points="75,0 40,25 40,-25" fill="none" stroke="#4b5563" stroke-width="2" class="aperture-blade"/>
+                                <polygon points="0,75 -25,40 25,40" fill="none" stroke="#4b5563" stroke-width="2" class="aperture-blade"/>
+                                <polygon points="-75,0 -40,-25 -40,25" fill="none" stroke="#4b5563" stroke-width="2" class="aperture-blade"/>
+                            </g>
+
+                            <!-- Center Glass Inner Core -->
+                            <circle cx="450" cy="350" r="45" fill="#000000" opacity="0.8"/>
+                            <circle cx="435" cy="335" r="15" fill="#ffffff" opacity="0.25"/>
+                            
+                            <!-- Aperture Value Markings on Lens -->
+                            <text x="450" y="215" font-family="monospace" font-size="12" fill="#f59e0b" text-anchor="middle" font-weight="bold">f/1.4</text>
+                            <text x="515" y="235" font-family="monospace" font-size="10" fill="#9ca3af" text-anchor="middle">f/2</text>
+                            <text x="560" y="280" font-family="monospace" font-size="10" fill="#9ca3af" text-anchor="middle">f/2.8</text>
+                            <text x="580" y="345" font-family="monospace" font-size="10" fill="#9ca3af" text-anchor="middle">f/4</text>
+                        </g>
+
+                        <!-- LCD Screen Frame Preview (Lower Right Accent Button) -->
+                        <g id="lcd-screen-preview" class="cursor-pointer group" onclick="toggleLcdQuickView()" onmouseenter="highlightPart('Live View LCD Screen: Dynamic Quick Preview')" onmouseleave="resetHighlight()">
+                            <rect x="630" y="380" width="100" height="70" rx="6" fill="#030712" stroke="#00f0ff" stroke-width="2" class="group-hover:stroke-white"/>
+                            <rect x="635" y="385" width="90" height="60" rx="4" fill="#0a0a0c"/>
+                            <!-- Mini histogram chart graphic -->
+                            <path d="M 640 435 L 650 420 L 660 430 L 675 400 L 690 425 L 705 410 L 720 435 Z" fill="rgba(0, 240, 255, 0.3)" stroke="#00f0ff" stroke-width="1"/>
+                            <text x="680" y="398" font-family="monospace" font-size="8" fill="#00f0ff" text-anchor="middle">LIVE VIEW</text>
+                        </g>
+                    </svg>
+
+                    <!-- Hotspot Overlay Interactive Buttons Mapped to Camera Parts -->
+                    <div class="hotspot-point" style="top: 28%; left: 26%;" onclick="triggerShutterAction()">
+                        <div class="relative flex items-center justify-center">
+                            <span class="animate-ping absolute inline-flex h-8 w-8 rounded-full bg-leicaRed opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-6 w-6 bg-leicaRed text-white items-center justify-center text-[10px] font-bold shadow-lg">1</span>
+                        </div>
+                    </div>
+
+                    <div class="hotspot-point" style="top: 58%; left: 50%;" onclick="switchSection('portfolio')">
+                        <div class="relative flex items-center justify-center">
+                            <span class="animate-ping absolute inline-flex h-12 w-12 rounded-full bg-amberGold opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-8 w-8 bg-amberGold text-black items-center justify-center text-xs font-bold shadow-hud-glow">2</span>
+                        </div>
+                    </div>
+
+                    <div class="hotspot-point" style="top: 25%; left: 50%;" onclick="switchSection('about')">
+                        <div class="relative flex items-center justify-center">
+                            <span class="animate-ping absolute inline-flex h-8 w-8 rounded-full bg-cyanHud opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-6 w-6 bg-cyanHud text-black items-center justify-center text-[10px] font-bold shadow-lg">3</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- HUD Dynamic Feedback Bar -->
+                <div class="w-full max-w-xl mt-2 bg-charcoal/90 border border-cyanHud/30 rounded-xl p-3 text-center shadow-lg">
+                    <div id="hud-status-text" class="text-xs sm:text-sm font-mono text-cyanHud tracking-wide">
+                        <i class="fas fa-crosshairs mr-2 animate-spin"></i>HOVER OVER CAMERA HOTSPOTS OR TAP BUTTONS ABOVE
+                    </div>
+                </div>
+
+                <!-- Direct Quick Action Cards Grid Below Camera -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-4xl mt-6">
+                    <div onclick="switchSection('portfolio')" class="glass-panel p-4 rounded-xl border border-white/10 hover:border-amberGold/50 transition-all cursor-pointer group flex items-center space-x-4">
+                        <div class="w-12 h-12 rounded-xl bg-amberGold/10 border border-amberGold/30 flex items-center justify-center text-amberGold group-hover:scale-110 transition-transform">
+                            <i class="fas fa-camera-retro text-xl"></i>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-mono text-amberGold tracking-wider">HOTSPOT 02 • LENS</span>
+                            <h3 class="text-sm font-bold text-white group-hover:text-amberGold transition-colors">PORTFOLIO GALLERY</h3>
+                            <p class="text-xs text-gray-400">Portrait, Landscape, Fine Art</p>
+                        </div>
+                    </div>
+
+                    <div onclick="switchSection('about')" class="glass-panel p-4 rounded-xl border border-white/10 hover:border-cyanHud/50 transition-all cursor-pointer group flex items-center space-x-4">
+                        <div class="w-12 h-12 rounded-xl bg-cyanHud/10 border border-cyanHud/30 flex items-center justify-center text-cyanHud group-hover:scale-110 transition-transform">
+                            <i class="fas fa-user-astronaut text-xl"></i>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-mono text-cyanHud tracking-wider">HOTSPOT 03 • VIEWFINDER</span>
+                            <h3 class="text-sm font-bold text-white group-hover:text-cyanHud transition-colors">ABOUT & GEAR BAG</h3>
+                            <p class="text-xs text-gray-400">Bio, Equipment & Specs</p>
+                        </div>
+                    </div>
+
+                    <div onclick="switchSection('contact')" class="glass-panel p-4 rounded-xl border border-white/10 hover:border-leicaRed/50 transition-all cursor-pointer group flex items-center space-x-4">
+                        <div class="w-12 h-12 rounded-xl bg-leicaRed/10 border border-leicaRed/30 flex items-center justify-center text-leicaRed group-hover:scale-110 transition-transform">
+                            <i class="fas fa-paper-plane text-xl"></i>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-mono text-leicaRed tracking-wider">HOTSPOT 01 • SHUTTER</span>
+                            <h3 class="text-sm font-bold text-white group-hover:text-leicaRed transition-colors">BOOKING & CONTACT</h3>
+                            <p class="text-xs text-gray-400">Inquiries & Calendar</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= SECTION 2: PORTFOLIO GALLERY ================= -->
+        <section id="section-portfolio" class="main-section hidden space-y-6 transition-all duration-500">
+            <!-- Section Header -->
+            <div class="flex flex-col md:flex-row md:items-end justify-between border-b border-white/10 pb-4 gap-4">
+                <div>
+                    <div class="flex items-center space-x-2 text-xs font-mono text-amberGold uppercase tracking-widest mb-1">
+                        <i class="fas fa-dot-circle"></i>
+                        <span>CAMERA LENS APERTURE SELECTION</span>
+                    </div>
+                    <h2 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">FEATURED PORTFOLIO</h2>
+                </div>
+
+                <!-- Gallery Category Filter Buttons -->
+                <div class="flex flex-wrap gap-2 font-mono text-xs">
+                    <button onclick="filterGallery('all')" class="filter-btn px-4 py-2 rounded-lg bg-amberGold text-black font-semibold transition-all" data-category="all">ALL SHOTS</button>
+                    <button onclick="filterGallery('portrait')" class="filter-btn px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 transition-all" data-category="portrait">PORTRAIT</button>
+                    <button onclick="filterGallery('landscape')" class="filter-btn px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 transition-all" data-category="landscape">LANDSCAPE</button>
+                    <button onclick="filterGallery('street')" class="filter-btn px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 transition-all" data-category="street">STREET</button>
+                    <button onclick="filterGallery('architecture')" class="filter-btn px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 transition-all" data-category="architecture">ARCHITECTURE</button>
+                </div>
+            </div>
+
+            <!-- Dynamic Photo Grid -->
+            <div id="gallery-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Gallery Items rendered programmatically via JS for rich interactive metadata -->
+            </div>
+        </section>
+
+        <!-- ================= SECTION 3: ABOUT ME & GEAR BAG ================= -->
+        <section id="section-about" class="main-section hidden space-y-8 transition-all duration-500">
+            <!-- Header -->
+            <div class="border-b border-white/10 pb-4">
+                <div class="flex items-center space-x-2 text-xs font-mono text-cyanHud uppercase tracking-widest mb-1">
+                    <i class="fas fa-sliders-h"></i>
+                    <span>MODE DIAL / VIEWFINDER INSIGHTS</span>
+                </div>
+                <h2 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">THE PHOTOGRAPHER & GEAR</h2>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <!-- Left Bio Card -->
+                <div class="lg:col-span-5 glass-panel p-6 sm:p-8 rounded-3xl border border-white/10 space-y-6">
+                    <div class="relative w-full h-72 rounded-2xl overflow-hidden border border-white/10 group">
+                        <img src="https://images.unsplash.com/photo-1554048612-b6a482bc67e5?auto=format&fit=crop&w=800&q=80" alt="Photographer Portrait" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
+                        <div class="absolute inset-0 bg-gradient-to-t from-obsidian via-transparent to-transparent"></div>
+                        <div class="absolute bottom-4 left-4 right-4">
+                            <span class="px-2.5 py-1 rounded-full bg-leicaRed text-white font-mono text-[10px] font-bold tracking-wider">VISUAL ARTIST</span>
+                            <h3 class="text-xl font-bold text-white mt-1">Julian Vance</h3>
+                            <p class="text-xs font-mono text-gray-300">Based in Tokyo & London</p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4 text-sm text-gray-300 leading-relaxed">
+                        <p>
+                            With over 12 years behind the viewfinder, my photography explores the intersection of raw human emotion, urban geometry, and atmospheric lighting.
+                        </p>
+                        <p>
+                            Every shutter press is an effort to isolate timeless moments out of perpetual chaos. Specializing in high-contrast cinematic portraiture and architectural nightscapes.
+                        </p>
+                    </div>
+
+                    <!-- Awards & Milestones Badges -->
+                    <div class="pt-4 border-t border-white/10 space-y-3">
+                        <h4 class="text-xs font-mono text-cyanHud uppercase tracking-wider">RECOGNITION & AWARDS</h4>
+                        <div class="grid grid-cols-2 gap-3 text-xs font-mono">
+                            <div class="p-3 rounded-xl bg-white/5 border border-white/10 flex items-center space-x-3">
+                                <i class="fas fa-trophy text-amberGold text-base"></i>
+                                <div>
+                                    <div class="font-bold text-white">IPA 2024</div>
+                                    <div class="text-[10px] text-gray-400">1st Place Portrait</div>
+                                </div>
+                            </div>
+                            <div class="p-3 rounded-xl bg-white/5 border border-white/10 flex items-center space-x-3">
+                                <i class="fas fa-award text-cyanHud text-base"></i>
+                                <div>
+                                    <div class="font-bold text-white">PX3 Paris</div>
+                                    <div class="text-[10px] text-gray-400">Gold Fine Art</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Gear Bag Inspector -->
+                <div class="lg:col-span-7 space-y-6">
+                    <div class="glass-panel p-6 sm:p-8 rounded-3xl border border-white/10 space-y-6">
+                        <div class="flex items-center justify-between border-b border-white/10 pb-4">
+                            <div>
+                                <h3 class="text-lg font-bold text-white">INTERACTIVE GEAR INSPECTOR</h3>
+                                <p class="text-xs font-mono text-gray-400">Click camera equipment items to view optical specifications</p>
+                            </div>
+                            <i class="fas fa-toolbox text-cyanHud text-xl"></i>
+                        </div>
+
+                        <!-- Gear Selection Tabs -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <!-- Gear Item 1 -->
+                            <div onclick="inspectGear('camera-body')" class="gear-card p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-cyanHud/30 cursor-pointer transition-all">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-10 h-10 rounded-xl bg-cyanHud/20 text-cyanHud flex items-center justify-center font-bold">
+                                        <i class="fas fa-camera"></i>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs font-mono text-cyanHud">PRIMARY BODY</div>
+                                        <div class="text-sm font-bold text-white">Leica SL2 Full-Frame</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Gear Item 2 -->
+                            <div onclick="inspectGear('prime-lens')" class="gear-card p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 cursor-pointer transition-all">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-10 h-10 rounded-xl bg-amberGold/20 text-amberGold flex items-center justify-center font-bold">
+                                        <i class="fas fa-circle-notch"></i>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs font-mono text-amberGold">PRIME LENS</div>
+                                        <div class="text-sm font-bold text-white">Summilux-M 50mm f/1.4</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Gear Item 3 -->
+                            <div onclick="inspectGear('wide-lens')" class="gear-card p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 cursor-pointer transition-all">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+                                        <i class="fas fa-mountain"></i>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs font-mono text-emerald-400">WIDE ANGLE</div>
+                                        <div class="text-sm font-bold text-white">24mm f/1.8 Pro Glass</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Gear Item 4 -->
+                            <div onclick="inspectGear('lighting')" class="gear-card p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 cursor-pointer transition-all">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-10 h-10 rounded-xl bg-leicaRed/20 text-leicaRed flex items-center justify-center font-bold">
+                                        <i class="fas fa-bolt"></i>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs font-mono text-leicaRed">LIGHTING & FILTERS</div>
+                                        <div class="text-sm font-bold text-white">Profoto A1X & ND Grads</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Dynamic Gear Specification Display Box -->
+                        <div id="gear-spec-display" class="p-5 rounded-2xl bg-black/60 border border-cyanHud/30 font-mono text-xs space-y-3">
+                            <!-- Display populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= SECTION 4: CONTACT & BOOKING ================= -->
+        <section id="section-contact" class="main-section hidden space-y-8 transition-all duration-500">
+            <!-- Header -->
+            <div class="border-b border-white/10 pb-4">
+                <div class="flex items-center space-x-2 text-xs font-mono text-leicaRed uppercase tracking-widest mb-1">
+                    <i class="fas fa-bolt"></i>
+                    <span>SHUTTER BUTTON TRIGGER • BOOKING INQUIRY</span>
+                </div>
+                <h2 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">INITIATE A PROJECT</h2>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <!-- Left Booking Form -->
+                <div class="lg:col-span-7 glass-panel p-6 sm:p-8 rounded-3xl border border-white/10 space-y-6">
+                    <form id="contact-form" onsubmit="handleFormSubmit(event)" class="space-y-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-mono text-gray-400 mb-1.5 uppercase">Client Name *</label>
+                                <input type="text" required placeholder="e.g. Elena Rostova" class="w-full bg-black/50 border border-white/10 focus:border-cyanHud rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 outline-none transition-colors">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-mono text-gray-400 mb-1.5 uppercase">Email Address *</label>
+                                <input type="email" required placeholder="elena@studio.com" class="w-full bg-black/50 border border-white/10 focus:border-cyanHud rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 outline-none transition-colors">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-mono text-gray-400 mb-1.5 uppercase">Shoot Category</label>
+                                <select class="w-full bg-black/50 border border-white/10 focus:border-cyanHud rounded-xl px-4 py-3 text-sm text-white outline-none transition-colors">
+                                    <option value="portrait">Editorial Portraiture</option>
+                                    <option value="commercial">Commercial / Brand</option>
+                                    <option value="architecture">Architectural / Space</option>
+                                    <option value="fineart">Fine Art Print Purchase</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-mono text-gray-400 mb-1.5 uppercase">Estimated Budget</label>
+                                <select class="w-full bg-black/50 border border-white/10 focus:border-cyanHud rounded-xl px-4 py-3 text-sm text-white outline-none transition-colors">
+                                    <option value="2k-5k">$2,000 - $5,000</option>
+                                    <option value="5k-10k">$5,000 - $10,000</option>
+                                    <option value="10k+">$10,000+</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-mono text-gray-400 mb-1.5 uppercase">Project Details & Location *</label>
+                            <textarea required rows="4" placeholder="Describe scope, date expectations, and creative direction..." class="w-full bg-black/50 border border-white/10 focus:border-cyanHud rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 outline-none transition-colors"></textarea>
+                        </div>
+
+                        <button type="submit" class="w-full py-4 rounded-xl bg-leicaRed hover:bg-red-700 text-white font-bold font-mono text-sm tracking-wider shadow-red-glow transition-all flex items-center justify-center space-x-2 group">
+                            <i class="fas fa-camera text-base group-hover:scale-125 transition-transform"></i>
+                            <span>TRIGGER INQUIRY (RELEASE SHUTTER)</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Right Location & Availability Preview -->
+                <div class="lg:col-span-5 space-y-6">
+                    <!-- Availability Card -->
+                    <div class="glass-panel p-6 rounded-3xl border border-white/10 space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-sm font-mono text-cyanHud uppercase font-bold">AVAILABILITY CALENDAR</h3>
+                            <span class="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-mono border border-emerald-500/30">BOOKING Q4 2026</span>
+                        </div>
+                        <div class="grid grid-cols-7 gap-1 text-center font-mono text-xs text-gray-400 pt-2">
+                            <div class="py-1 text-gray-600">M</div><div class="py-1 text-gray-600">T</div><div class="py-1 text-gray-600">W</div><div class="py-1 text-gray-600">T</div><div class="py-1 text-gray-600">F</div><div class="py-1 text-amberGold">S</div><div class="py-1 text-amberGold">S</div>
+                            <!-- Simple Mini Calendar Grid -->
+                            <div class="p-2 rounded bg-white/5 opacity-40">1</div>
+                            <div class="p-2 rounded bg-white/5 opacity-40">2</div>
+                            <div class="p-2 rounded bg-white/5 opacity-40">3</div>
+                            <div class="p-2 rounded bg-cyanHud/20 text-cyanHud font-bold border border-cyanHud/40">4</div>
+                            <div class="p-2 rounded bg-cyanHud/20 text-cyanHud font-bold border border-cyanHud/40">5</div>
+                            <div class="p-2 rounded bg-leicaRed/30 text-leicaRed font-bold border border-leicaRed/40">6</div>
+                            <div class="p-2 rounded bg-leicaRed/30 text-leicaRed font-bold border border-leicaRed/40">7</div>
+                        </div>
+                        <p class="text-[11px] text-gray-400 font-mono">
+                            <i class="fas fa-circle text-cyanHud text-[8px] mr-1"></i>Available | 
+                            <i class="fas fa-circle text-leicaRed text-[8px] mr-1 ml-2"></i>On Location
+                        </p>
+                    </div>
+
+                    <!-- Direct Contact Channels -->
+                    <div class="glass-panel p-6 rounded-3xl border border-white/10 space-y-4 font-mono text-xs">
+                        <h3 class="text-sm font-bold text-white mb-2">DIRECT CHANNELS</h3>
+                        <a href="mailto:joyholder18@hotmail.com " class="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300">
+                            <span><i class="far fa-envelope text-cyanHud mr-2"></i>joyholder18@hotmail.com</span>
+                            <i class="fas fa-arrow-right text-gray-500"></i>
+                        </a>
+                        <a href="#" onclick="alert('Studio Line: +1 (555) 019-2834'); return false;" class="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300">
+                            <span><i class="fas fa-phone-alt text-emerald-400 mr-2"></i>+1 (555) 019-2834</span>
+                            <i class="fas fa-arrow-right text-gray-500"></i>
+                        </a>
+                        <div class="flex items-center justify-around pt-2">
+                            <a href="#" class="w-10 h-10 rounded-full bg-white/5 hover:bg-cyanHud/20 text-gray-300 hover:text-cyanHud flex items-center justify-center transition-colors"><i class="fab fa-instagram text-base"></i></a>
+                            <a href="#" class="w-10 h-10 rounded-full bg-white/5 hover:bg-cyanHud/20 text-gray-300 hover:text-cyanHud flex items-center justify-center transition-colors"><i class="fab fa-behance text-base"></i></a>
+                            <a href="#" class="w-10 h-10 rounded-full bg-white/5 hover:bg-cyanHud/20 text-gray-300 hover:text-cyanHud flex items-center justify-center transition-colors"><i class="fab fa-twitter text-base"></i></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ================= LIGHTBOX / EXIF MODAL ================= -->
+    <div id="lightbox-modal" class="fixed inset-0 z-50 hidden bg-black/95 backdrop-blur-md flex flex-col justify-between p-4 sm:p-6 transition-opacity duration-300">
+        <!-- Lightbox Header Controls -->
+        <div class="flex items-center justify-between border-b border-white/10 pb-3 font-mono text-xs">
+            <div class="flex items-center space-x-3">
+                <span class="px-2.5 py-1 rounded bg-amberGold/20 text-amberGold border border-amberGold/30 uppercase font-bold" id="lightbox-category">PORTRAIT</span>
+                <span id="lightbox-title" class="text-white font-bold text-sm sm:text-base">NEON CYBERNETICS</span>
+            </div>
+            <button onclick="closeLightbox()" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors">
+                <i class="fas fa-times text-base"></i>
+            </button>
+        </div>
+
+        <!-- Main Display Frame -->
+        <div class="relative flex-1 flex items-center justify-center my-4 overflow-hidden">
+            <img id="lightbox-image" src="" alt="Full Screen Photo Preview" class="max-h-full max-w-full object-contain rounded-xl shadow-2xl">
+            
+            <!-- Prev/Next Navigation Controls -->
+            <button onclick="navigateLightbox(-1)" class="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/60 border border-white/20 text-white flex items-center justify-center hover:bg-cyanHud hover:text-black transition-all">
+                <i class="fas fa-chevron-left text-lg"></i>
+            </button>
+            <button onclick="navigateLightbox(1)" class="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/60 border border-white/20 text-white flex items-center justify-center hover:bg-cyanHud hover:text-black transition-all">
+                <i class="fas fa-chevron-right text-lg"></i>
+            </button>
+        </div>
+
+        <!-- EXIF Metadata Display Panel -->
+        <div class="glass-panel p-4 rounded-2xl border border-white/10 font-mono text-xs grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
+            <div class="bg-black/40 p-2 rounded-lg border border-white/5">
+                <span class="text-gray-500 block text-[10px]">CAMERA</span>
+                <span id="exif-camera" class="text-cyanHud font-bold">Leica SL2</span>
+            </div>
+            <div class="bg-black/40 p-2 rounded-lg border border-white/5">
+                <span class="text-gray-500 block text-[10px]">LENS</span>
+                <span id="exif-lens" class="text-white font-bold">50mm f/1.4</span>
+            </div>
+            <div class="bg-black/40 p-2 rounded-lg border border-white/5">
+                <span class="text-gray-500 block text-[10px]">APERTURE</span>
+                <span id="exif-aperture" class="text-amberGold font-bold">f/1.4</span>
+            </div>
+            <div class="bg-black/40 p-2 rounded-lg border border-white/5">
+                <span class="text-gray-500 block text-[10px]">SHUTTER</span>
+                <span id="exif-shutter" class="text-white font-bold">1/500s</span>
+            </div>
+            <div class="col-span-2 sm:col-span-1 bg-black/40 p-2 rounded-lg border border-white/5">
+                <span class="text-gray-500 block text-[10px]">ISO</span>
+                <span id="exif-iso" class="text-emerald-400 font-bold">ISO 400</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- LCD Dynamic Quick Preview Screen Modal -->
+    <div id="lcd-modal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="glass-hud p-6 rounded-3xl max-w-md w-full border border-cyanHud/40 space-y-4 relative">
+            <button onclick="toggleLcdQuickView()" class="absolute top-4 right-4 text-gray-400 hover:text-white">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+            <div class="flex items-center space-x-2 text-xs font-mono text-cyanHud">
+                <i class="fas fa-desktop animate-pulse"></i>
+                <span>CAMERA LCD MONITOR LIVE FEED</span>
+            </div>
+            <div class="w-full h-48 rounded-xl bg-black overflow-hidden relative border border-white/10">
+                <img id="lcd-preview-img" src="https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&w=600&q=80" class="w-full h-full object-cover">
+                <!-- LCD HUD Info Overlay -->
+                <div class="absolute bottom-2 left-2 right-2 flex justify-between items-center text-[10px] font-mono bg-black/70 px-2 py-1 rounded text-cyanHud">
+                    <span>LIVE VIEW: RAW</span>
+                    <span>1/1000s f/1.8 ISO 200</span>
+                </div>
+            </div>
+            <p class="text-xs text-gray-300">
+                You are currently viewing through the camera's rear 3.2-inch high-resolution touchscreen preview feed.
+            </p>
+            <button onclick="switchSection('portfolio'); toggleLcdQuickView();" class="w-full py-2.5 rounded-xl bg-cyanHud text-black font-bold font-mono text-xs">
+                EXPAND FULL GALLERY
+            </button>
+        </div>
+    </div>
+
+    <!-- Toast Feedback Notification -->
+    <div id="toast-notification" class="fixed bottom-6 right-6 z-50 hidden glass-panel px-5 py-3 rounded-2xl border border-cyanHud/50 text-xs font-mono flex items-center space-x-3 shadow-hud-glow">
+        <i id="toast-icon" class="fas fa-check-circle text-cyanHud text-base"></i>
+        <span id="toast-msg" class="text-white">Inquiry transmitted successfully!</span>
+    </div>
+
+    <!-- Footer -->
+    <footer class="relative z-10 glass-panel border-t border-white/10 py-4 px-4 text-center font-mono text-xs text-gray-500">
+        <p>© 2026 HLDR.PHOTO • ALL RIGHTS RESERVED • CRAFTED WITH CAMERA HUD NAVIGATION</p>
+    </footer>
+
+    <!-- Application Logic & Interactive Scripts -->
+    <script>
+        /* ================= STATE & DATA ================= */
+        let currentSection = 'camera-hub';
+        let isAudioEnabled = true;
+        let currentPhotoIndex = 0;
+        let filteredPhotos = [];
+        let modeDialAngle = 0;
+
+        // Portfolio Dataset with EXIF Simulation
+        const galleryData = [
+            {
+                id: 1,
+                title: "Cyberpunk Alleyway",
+                category: "street",
+                image: "https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&w=1000&q=80",
+                exif: { camera: "Leica SL2", lens: "35mm Summilux", aperture: "f/1.4", shutter: "1/250s", iso: "ISO 800" }
+            },
+            {
+                id: 2,
+                title: "Aura Portrait",
+                category: "portrait",
+                image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1000&q=80",
+                exif: { camera: "Leica SL2", lens: "85mm Noctilux", aperture: "f/1.2", shutter: "1/1000s", iso: "ISO 100" }
+            },
+            {
+                id: 3,
+                title: "Mist Over Ridge",
+                category: "landscape",
+                image: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1000&q=80",
+                exif: { camera: "Hasselblad X2D", lens: "24mm f/2.5", aperture: "f/8.0", shutter: "1/60s", iso: "ISO 64" }
+            },
+            {
+                id: 4,
+                title: "Monolith Geometry",
+                category: "architecture",
+                image: "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1000&q=80",
+                exif: { camera: "Sony A7R V", lens: "16-35mm GM", aperture: "f/5.6", shutter: "1/500s", iso: "ISO 200" }
+            },
+            {
+                id: 5,
+                title: "Tokyo Neon Drift",
+                category: "street",
+                image: "https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&w=1000&q=80",
+                exif: { camera: "Leica M11", lens: "50mm f/0.95", aperture: "f/0.95", shutter: "1/125s", iso: "ISO 1600" }
+            },
+            {
+                id: 6,
+                title: "Silhouettes in Shadows",
+                category: "portrait",
+                image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=1000&q=80",
+                exif: { camera: "Leica SL2", lens: "50mm Summilux", aperture: "f/1.4", shutter: "1/2000s", iso: "ISO 100" }
+            }
+        ];
+
+        // Gear Inspector Specifications Data
+        const gearSpecs = {
+            'camera-body': {
+                name: "Leica SL2 Full-Frame Mirrorless",
+                sensor: "47.3 MP CMOS Sensor w/ Maestro III Processor",
+                iso: "ISO 50 to 50,000",
+                build: "IP54 Weather-sealed Anodized Aluminum Body",
+                desc: "Primary mirrorless workhorse for ultra-high resolution dynamic range and uncompromised optical clarity."
+            },
+            'prime-lens': {
+                name: "Summilux-M 50mm f/1.4 ASPH",
+                sensor: "8 elements in 5 groups w/ Floating Element System",
+                iso: "Aperture Range: f/1.4 to f/16",
+                build: "Manual Focus Brass Construction",
+                desc: "Produces legendary optical rendering, smooth creamy bokeh background, and extreme center sharpness."
+            },
+            'wide-lens': {
+                name: "Super-Elmar-M 24mm f/3.8 ASPH",
+                sensor: "Aspherical optics for near zero distortion",
+                iso: "Aperture Range: f/3.8 to f/16",
+                build: "Ultra-compact metal bayonet",
+                desc: "Ideal lens choice for grand landscape panoramas and dramatic architectural perspectives."
+            },
+            'lighting': {
+                name: "Profoto A1X On-Camera Flash Studio Kit",
+                sensor: "76Ws output with air remote TTL trigger",
+                iso: "Recycle time: 1.0s at full power",
+                build: "Magnetic modifier click-on ring",
+                desc: "Delivers natural soft light falling off gracefully, blending seamlessly with natural ambient daylight."
+            }
+        };
+
+        /* ================= WEB AUDIO SYNTHESIZER (Camera Shutter Effect) ================= */
+        function playShutterSound() {
+            if (!isAudioEnabled) return;
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                const ctx = new AudioCtx();
+
+                // Shutter click noise burst
+                const bufferSize = ctx.sampleRate * 0.05; // 50ms burst
+                const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+
+                const noise = ctx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = ctx.createBiquadFilter();
+                filter.type = 'highpass';
+                filter.frequency.value = 1000;
+
+                const gain = ctx.createGain();
+                gain.gain.setValueAtTime(0.8, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(ctx.destination);
+
+                noise.start();
+            } catch (e) {
+                console.log("Audio play blocked by browser policy until user interaction.");
+            }
+        }
+
+        function toggleAudio() {
+            isAudioEnabled = !isAudioEnabled;
+            const icon = document.getElementById('sound-icon');
+            const text = document.getElementById('sound-text');
+            if (isAudioEnabled) {
+                icon.className = 'fas fa-volume-up text-cyanHud';
+                text.innerText = 'SHUTTER AUDIO: ON';
+                showToast("Shutter audio synthesis activated");
+            } else {
+                icon.className = 'fas fa-volume-mute text-gray-500';
+                text.innerText = 'SHUTTER AUDIO: OFF';
+                showToast("Shutter audio muted");
+            }
+        }
+
+        /* ================= SECTION NAVIGATION ================= */
+        function switchSection(targetId) {
+            playShutterSound();
+            currentSection = targetId;
+
+            // Hide all sections
+            document.querySelectorAll('.main-section').forEach(sec => {
+                sec.classList.add('hidden');
+            });
+
+            // Show selected section
+            const targetSec = document.getElementById(`section-${targetId}`);
+            if (targetSec) {
+                targetSec.classList.remove('hidden');
+            }
+
+            // Update top navigation buttons state
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                if (btn.getAttribute('data-target') === targetId) {
+                    btn.classList.add('bg-white/10', 'text-white');
+                } else {
+                    btn.classList.remove('bg-white/10', 'text-white');
+                }
+            });
+
+            // Rotate camera lens ring for visual effect when returning to HUB or Portfolio
+            const lensRing = document.getElementById('outer-lens-ring');
+            if (lensRing) {
+                lensRing.style.transform = `rotate(${Math.random() * 360}deg)`;
+            }
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function toggleMobileNav() {
+            const mobileNav = document.getElementById('mobile-nav');
+            mobileNav.classList.toggle('hidden');
+        }
+
+        /* ================= CAMERA HUD INTERACTION ================= */
+        function highlightPart(description) {
+            const statusText = document.getElementById('hud-status-text');
+            statusText.innerHTML = `<i class="fas fa-crosshairs text-amberGold mr-2"></i>PART SELECTED: <span class="text-white font-bold">${description}</span>`;
+        }
+
+        function resetHighlight() {
+            const statusText = document.getElementById('hud-status-text');
+            statusText.innerHTML = `<i class="fas fa-crosshairs mr-2 animate-spin"></i>HOVER OVER CAMERA HOTSPOTS OR TAP BUTTONS ABOVE`;
+        }
+
+        function rotateModeDialAndNavigate() {
+            modeDialAngle += 90;
+            const marker = document.getElementById('mode-dial-marker');
+            if (marker) {
+                marker.style.transform = `rotate(${modeDialAngle}deg)`;
+            }
+            const modeDisplay = document.getElementById('current-mode-display');
+            const modes = ["PORTFOLIO [M]", "ABOUT [A]", "CONTACT [S]", "HUB [AUTO]"];
+            const modeIndex = (modeDialAngle / 90) % modes.length;
+            modeDisplay.innerText = modes[modeIndex];
+
+            if (modeIndex === 0) switchSection('portfolio');
+            else if (modeIndex === 1) switchSection('about');
+            else if (modeIndex === 2) switchSection('contact');
+            else switchSection('camera-hub');
+        }
+
+        function triggerShutterAction() {
+            playShutterSound();
+            showToast("Shutter button pressed! Navigating to booking form...");
+            setTimeout(() => {
+                switchSection('contact');
+            }, 300);
+        }
+
+        function toggleLcdQuickView() {
+            playShutterSound();
+            const lcdModal = document.getElementById('lcd-modal');
+            lcdModal.classList.toggle('hidden');
+        }
+
+        /* ================= PORTFOLIO & LIGHTBOX ================= */
+        function renderGallery(items) {
+            filteredPhotos = items;
+            const grid = document.getElementById('gallery-grid');
+            grid.innerHTML = '';
+
+            items.forEach((photo, index) => {
+                const card = document.createElement('div');
+                card.className = "glass-panel rounded-2xl overflow-hidden border border-white/10 group cursor-pointer hover:border-cyanHud/50 transition-all flex flex-col";
+                card.onclick = () => openLightbox(index);
+
+                card.innerHTML = `
+                    <div class="relative h-64 w-full overflow-hidden">
+                        <img src="${photo.image}" alt="${photo.title}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
+                            <span class="text-xs font-mono text-cyanHud"><i class="fas fa-search-plus mr-1"></i>VIEW EXIF & FULL RES</span>
+                        </div>
+                        <span class="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-amberGold font-mono text-[10px] uppercase font-bold border border-white/10">${photo.category}</span>
+                    </div>
+                    <div class="p-4 flex-1 flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-base font-bold text-white group-hover:text-cyanHud transition-colors">${photo.title}</h3>
+                            <p class="text-xs font-mono text-gray-400 mt-1">${photo.exif.camera} • ${photo.exif.lens}</p>
+                        </div>
+                        <div class="mt-3 pt-3 border-t border-white/10 flex justify-between items-center text-[11px] font-mono text-gray-500">
+                            <span>${photo.exif.aperture}</span>
+                            <span>${photo.exif.shutter}</span>
+                            <span>${photo.exif.iso}</span>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function filterGallery(category) {
+            playShutterSound();
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                if (btn.getAttribute('data-category') === category) {
+                    btn.className = 'filter-btn px-4 py-2 rounded-lg bg-amberGold text-black font-semibold transition-all';
+                } else {
+                    btn.className = 'filter-btn px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 transition-all';
+                }
+            });
+
+            if (category === 'all') {
+                renderGallery(galleryData);
+            } else {
+                const filtered = galleryData.filter(item => item.category === category);
+                renderGallery(filtered);
+            }
+        }
+
+        function openLightbox(index) {
+            playShutterSound();
+            currentPhotoIndex = index;
+            const photo = filteredPhotos[currentPhotoIndex];
+            if (!photo) return;
+
+            document.getElementById('lightbox-image').src = photo.image;
+            document.getElementById('lightbox-title').innerText = photo.title;
+            document.getElementById('lightbox-category').innerText = photo.category;
+            
+            document.getElementById('exif-camera').innerText = photo.exif.camera;
+            document.getElementById('exif-lens').innerText = photo.exif.lens;
+            document.getElementById('exif-aperture').innerText = photo.exif.aperture;
+            document.getElementById('exif-shutter').innerText = photo.exif.shutter;
+            document.getElementById('exif-iso').innerText = photo.exif.iso;
+
+            document.getElementById('lightbox-modal').classList.remove('hidden');
+        }
+
+        function closeLightbox() {
+            document.getElementById('lightbox-modal').classList.add('hidden');
+        }
+
+        function navigateLightbox(direction) {
+            playShutterSound();
+            currentPhotoIndex = (currentPhotoIndex + direction + filteredPhotos.length) % filteredPhotos.length;
+            openLightbox(currentPhotoIndex);
+        }
+
+        /* ================= GEAR INSPECTOR ================= */
+        function inspectGear(gearKey) {
+            playShutterSound();
+            const spec = gearSpecs[gearKey];
+            const display = document.getElementById('gear-spec-display');
+            if (!spec || !display) return;
+
+            display.innerHTML = `
+                <div class="text-cyanHud font-bold uppercase tracking-wider text-sm mb-1">${spec.name}</div>
+                <div class="text-gray-300">${spec.desc}</div>
+                <div class="pt-2 border-t border-white/10 grid grid-cols-1 sm:grid-cols-2 gap-2 text-gray-400">
+                    <div>• SENSOR/OPTICS: <span class="text-white">${spec.sensor}</span></div>
+                    <div>• RATING/SPEC: <span class="text-amberGold">${spec.iso}</span></div>
+                    <div class="col-span-1 sm:col-span-2">• CHASSIS BUILD: <span class="text-white">${spec.build}</span></div>
+                </div>
+            `;
+        }
+
+        /* ================= FORM SUBMISSION & TOAST ================= */
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            playShutterSound();
+            showToast("Inquiry captured! I will contact you within 24 hours.");
+            e.target.reset();
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast-notification');
+            const toastMsg = document.getElementById('toast-msg');
+            toastMsg.innerText = message;
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3500);
+        }
+
+        /* ================= FLOATING BOKEH BACKGROUND ANIMATION ================= */
+        function initBokehCanvas() {
+            const canvas = document.getElementById('bokeh-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+
+            let width = (canvas.width = window.innerWidth);
+            let height = (canvas.height = window.innerHeight);
+
+            window.addEventListener('resize', () => {
+                width = canvas.width = window.innerWidth;
+                height = canvas.height = window.innerHeight;
+            });
+
+            const particles = Array.from({ length: 25 }, () => ({
+                x: Math.random() * width,
+                y: Math.random() * height,
+                radius: Math.random() * 35 + 10,
+                color: Math.random() > 0.5 ? 'rgba(0, 240, 255, ' : 'rgba(245, 158, 11, ',
+                alpha: Math.random() * 0.15 + 0.05,
+                vx: (Math.random() - 0.5) * 0.3,
+                vy: (Math.random() - 0.5) * 0.3
+            }));
+
+            function animateBokeh() {
+                ctx.clearRect(0, 0, width, height);
+
+                particles.forEach(p => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+
+                    if (p.x < -50) p.x = width + 50;
+                    if (p.x > width + 50) p.x = -50;
+                    if (p.y < -50) p.y = height + 50;
+                    if (p.y > height + 50) p.y = -50;
+
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = `${p.color}${p.alpha})`;
+                    ctx.fill();
+                });
+
+                requestAnimationFrame(animateBokeh);
+            }
+
+            animateBokeh();
+        }
+
+        /* ================= INITIALIZATION ================= */
+        window.onload = function() {
+            initBokehCanvas();
+            renderGallery(galleryData);
+            inspectGear('camera-body');
+
+            // Keyboard shortcut support for Lightbox
+            document.addEventListener('keydown', (e) => {
+                const lightbox = document.getElementById('lightbox-modal');
+                if (!lightbox.classList.contains('hidden')) {
+                    if (e.key === 'Escape') closeLightbox();
+                    if (e.key === 'ArrowLeft') navigateLightbox(-1);
+                    if (e.key === 'ArrowRight') navigateLightbox(1);
+                }
+            });
+        };
+    </script>
+</body>
+</html>
