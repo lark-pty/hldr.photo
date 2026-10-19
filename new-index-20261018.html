@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HLDR.PHOTO | Visual Artist & Photographer</title>
+    <style>
+        :root {
+            --bg-dark: #070b12;
+            --bg-card: #0d1527;
+            --bg-card-hover: #131e38;
+            --accent-cyan: #00d8ff;
+            --accent-blue: #0077ff;
+            --text-main: #f0f6fc;
+            --text-muted: #8b9eb7;
+            --border-glow: rgba(0, 216, 255, 0.3);
+            --border-solid: #1e2d4a;
+            --font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: var(--font-family);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* --- Camera HUD Header & Nav --- */
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background: rgba(7, 11, 18, 0.9);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-glow);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand-logo {
+            font-weight: 800;
+            font-size: 1.4rem;
+            letter-spacing: 2px;
+            color: #fff;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .brand-logo span {
+            color: var(--accent-cyan);
+            font-size: 0.8rem;
+            padding: 2px 6px;
+            border: 1px solid var(--accent-cyan);
+            border-radius: 4px;
+        }
+
+        nav ul {
+            display: flex;
+            list-style: none;
+            gap: 1.5rem;
+        }
+
+        nav a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: color 0.3s, text-shadow 0.3s;
+            cursor: pointer;
+        }
+
+        nav a:hover, nav a.active {
+            color: var(--accent-cyan);
+            text-shadow: 0 0 8px var(--accent-cyan);
+        }
+
+        /* --- General Layout & Section Styling --- */
+        .section {
+            display: none;
+            padding: 4rem 2rem;
+            max-width: 1250px;
+            margin: 0 auto;
+            animation: fadeIn 0.4s ease-in-out forwards;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .btn {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            color: #fff;
+            padding: 0.8rem 1.8rem;
+            border-radius: 4px;
+            font-weight: 600;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(0, 216, 255, 0.2);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 25px rgba(0, 216, 255, 0.4);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--accent-cyan);
+            color: var(--accent-cyan);
+            box-shadow: none;
+        }
+
+        .btn-outline:hover {
+            background: rgba(0, 216, 255, 0.1);
+        }
+
+        .section-title {
+            font-size: 2.2rem;
+            margin-bottom: 0.5rem;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .section-subtitle {
+            color: var(--text-muted);
+            margin-bottom: 2.5rem;
+            font-size: 1rem;
+        }
+
+        /* --- HOME SECTION --- */
+        .hero {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            align-items: center;
+            min-height: 70vh;
+        }
+
+        .hero-content h1 {
+            font-size: 3.2rem;
+            line-height: 1.15;
+            margin-bottom: 1.2rem;
+            background: linear-gradient(to right, #fff, var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-content p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+        }
+
+        .hero-visual {
+            position: relative;
+            border: 1px solid var(--border-glow);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0, 119, 255, 0.2);
+        }
+
+        .hero-visual img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .hud-overlay {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            right: 15px;
+            display: flex;
+            justify-content: space-between;
+            font-family: monospace;
+            font-size: 0.75rem;
+            color: var(--accent-cyan);
+            background: rgba(7, 11, 18, 0.7);
+            padding: 6px 12px;
+            border-radius: 4px;
+            border: 1px solid var(--border-glow);
+        }
+
+        /* Featured Work Teaser Grid */
+        .featured-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-solid);
+            border-radius: 8px;
+            overflow: hidden;
+            transition: border-color 0.3s, transform 0.3s;
+        }
+
+        .card:hover {
+            border-color: var(--accent-cyan);
+            transform: translateY(-4px);
+        }
+
+        .card img {
+            width: 100%;
+            height: 220px;
+            object-fit: cover;
+        }
+
+        .card-body {
+            padding: 1.2rem;
+        }
+
+        .card-body h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.4rem;
+        }
+
+        .card-body p {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        /* Client Proof Section */
+        .client-proof {
+            margin-top: 5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-solid);
+            border-radius: 8px;
+            padding: 2.5rem;
+        }
+
+        .client-logos {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 2rem;
+            margin-bottom: 2.5rem;
+            opacity: 0.7;
+            filter: grayscale(100%);
+            transition: filter 0.3s;
+        }
+
+        .client-logos:hover {
+            filter: grayscale(0%);
+        }
+
+        .logo-item {
+            font-weight: 700;
+            letter-spacing: 2px;
+            font-size: 1.2rem;
+            color: var(--text-muted);
+        }
+
+        .testimonials {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .testimonial-card {
+            background: rgba(7, 11, 18, 0.6);
+            border-left: 3px solid var(--accent-cyan);
+            padding: 1.2rem;
+            font-size: 0.95rem;
+            color: var(--text-muted);
+        }
+
+        .testimonial-card span {
+            display: block;
+            margin-top: 0.8rem;
+            color: var(--text-main);
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        /* --- PORTFOLIO & CASE STUDIES --- */
+        .portfolio-filters {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border-solid);
+            color: var(--text-muted);
+            padding: 0.5rem 1.2rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .filter-btn.active, .filter-btn:hover {
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+            background: rgba(0, 216, 255, 0.05);
+        }
+
+        /* Before / After Slider Component */
+        .ba-container {
+            position: relative;
+            width: 100%;
+            height: 420px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border-glow);
+            margin-bottom: 4rem;
+            user-select: none;
+        }
+
+        .ba-img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+        }
+
+        .ba-before {
+            width: 50%;
+            z-index: 2;
+            border-right: 2px solid var(--accent-cyan);
+        }
+
+        .ba-slider {
+            position: absolute;
+            z-index: 3;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            width: 4px;
+            background: var(--accent-cyan);
+            cursor: ew-resize;
+        }
+
+        .ba-button {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            color: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            box-shadow: 0 0 10px rgba(0,216,255,0.8);
+        }
+
+        /* Case Study Deep Dive Card */
+        .case-study-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border-solid);
+            border-radius: 8px;
+            padding: 2rem;
+            margin-top: 2rem;
+        }
+
+        .cs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .cs-step {
+            background: rgba(7, 11, 18, 0.5);
+            padding: 1.2rem;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .cs-step h4 {
+            color: var(--accent-cyan);
+            margin-bottom: 0.5rem;
+        }
+
+        /* --- SERVICES & PRICING --- */
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 4rem;
+        }
+
+        .price-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-solid);
+            border-radius: 8px;
+            padding: 2.5rem 1.8rem;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .price-card.popular {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 20px rgba(0, 216, 255, 0.15);
+        }
+
+        .badge {
+            position: absolute;
+            top: -12px;
+            right: 20px;
+            background: var(--accent-cyan);
+            color: #000;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 2px 10px;
+            border-radius: 12px;
+            text-transform: uppercase;
+        }
+
+        .price-amount {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: #fff;
+            margin: 1rem 0;
+        }
+
+        .price-amount span {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .feature-list {
+            list-style: none;
+            margin-bottom: 2rem;
+            flex-grow: 1;
+        }
+
+        .feature-list li {
+            margin-bottom: 0.8rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .feature-list li::before {
+            content: "✓";
+            color: var(--accent-cyan);
+            font-weight: bold;
+        }
+
+        /* Workflow Steps */
+        .timeline {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 4rem;
+        }
+
+        .time-step {
+            background: var(--bg-card);
+            border: 1px solid var(--border-solid);
+            padding: 1.5rem;
+            border-radius: 6px;
+            position: relative;
+        }
+
+        .step-num {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--accent-cyan);
+            margin-bottom: 0.5rem;
+        }
+
+        /* FAQ Accordion */
+        .faq-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border-solid);
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+
+        .faq-question {
+            width: 100%;
+            padding: 1.2rem;
+            text-align: left;
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .faq-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease, padding 0.3s ease;
+            padding: 0 1.2rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .faq-item.open .faq-answer {
+            max-height: 200px;
+            padding: 0 1.2rem 1.2rem 1.2rem;
+        }
+
+        /* --- ABOUT & CONTACT --- */
+        .about-grid {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 3rem;
+            margin-bottom: 4rem;
+        }
+
+        .headshot-box {
+            border: 1px solid var(--border-glow);
+            border-radius: 8px;
+            overflow: hidden;
+            height: 380px;
+        }
+
+        .headshot-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .contact-form {
+            background: var(--bg-card);
+            border: 1px solid var(--border-solid);
+            border-radius: 8px;
+            padding: 2.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.8rem;
+            background: var(--bg-dark);
+            border: 1px solid var(--border-solid);
+            border-radius: 4px;
+            color: #fff;
+            font-size: 0.95rem;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent-cyan);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        .social-links {
+            display: flex;
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .social-links a {
+            color: var(--accent-cyan);
+            text-decoration: none;
+            font-size: 0.9rem;
+            border: 1px solid var(--border-solid);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            transition: border-color 0.3s;
+        }
+
+        .social-links a:hover {
+            border-color: var(--accent-cyan);
+        }
+
+        /* --- Responsive Adjustments --- */
+        @media (max-width: 850px) {
+            .hero, .about-grid, .testimonials, .form-row {
+                grid-template-columns: 1fr;
+            }
+            .headshot-box {
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Camera HUD Top Navigation -->
+    <header>
+        <a href="#" class="brand-logo" onclick="switchTab('home')">
+            HLDR.PHOTO <span>ISO 100</span>
+        </a>
+        <nav>
+            <ul>
+                <li><a id="nav-home" class="active" onclick="switchTab('home')">Home</a></li>
+                <li><a id="nav-portfolio" onclick="switchTab('portfolio')">Portfolio</a></li>
+                <li><a id="nav-services" onclick="switchTab('services')">Services & Rates</a></li>
+                <li><a id="nav-about" onclick="switchTab('about')">About & Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- SECTION 1: HOME PAGE -->
+    <section id="home" class="section active">
+        <div class="hero">
+            <div class="hero-content">
+                <h1>High-Impact Commercial & Creative Photography</h1>
+                <p>Capturing clean visual narratives for tech innovators, architecture developers, and premium lifestyle brands across North and South America.</p>
+                <button class="btn" onclick="switchTab('about')">Book a Discovery Session</button>
+            </div>
+            <div class="hero-visual">
+                <div class="hud-overlay">
+                    <span>F2.8</span>
+                    <span>1/250s</span>
+                    <span>RAW 14-BIT</span>
+                </div>
+                <img src="https://picsum.photos/id/1059/800/600" alt="Camera Lens Display">
+            </div>
+        </div>
+
+        <h2 class="section-title" style="margin-top: 4rem;">Featured Directives</h2>
+        <p class="section-subtitle">A curated preview of recent commercial assignments.</p>
+        
+        <div class="featured-grid">
+            <div class="card">
+                <img src="https://picsum.photos/id/1060/500/350" alt="Tech Workplace">
+                <div class="card-body">
+                    <h3>Architectural Tech Hub</h3>
+                    <p>Interior lighting & spatial design capture for regional tech offices.</p>
+                </div>
+            </div>
+            <div class="card">
+                <img src="https://picsum.photos/id/1069/500/350" alt="Brand Portrait">
+                <div class="card-body">
+                    <h3>Executive Brand Profiles</h3>
+                    <p>High-contrast corporate headshots and dynamic workspace editorials.</p>
+                </div>
+            </div>
+            <div class="card">
+                <img src="https://picsum.photos/id/1080/500/350" alt="Landscape Structural">
+                <div class="card-body">
+                    <h3>Panama Maritime Logistics</h3>
+                    <p>Industrial drone imagery and heavy equipment detail documentation.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Client Proof Row -->
+        <div class="client-proof">
+            <p style="text-align: center; color: var(--accent-cyan); font-size: 0.85rem; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 1.5rem;">Trusted By Industry Leaders</p>
+            <div class="client-logos">
+                <div class="logo-item">SMJ INSPIRATIONS</div>
+                <div class="logo-item">APEX REALTY</div>
+                <div class="logo-item">GLOBAL LOGISTICS</div>
+                <div class="logo-item">NORDIC DIGITAL</div>
+            </div>
+            <div class="testimonials">
+                <div class="testimonial-card">
+                    "HLDR.PHOTO brought incredible clarity and technical precision to our brand campaign. The delivery was seamless and on schedule."
+                    <span>— Executive Director, SMJ Inspirations</span>
+                </div>
+                <div class="testimonial-card">
+                    "The post-processing and visual tone perfectly matched our technical guidelines. Highly recommended for commercial shoots."
+                    <span>— Marketing Lead, Apex Realty</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 2: PORTFOLIO / CASE STUDIES PAGE -->
+    <section id="portfolio" class="section">
+        <h2 class="section-title">Portfolio & Deep Dives</h2>
+        <p class="section-subtitle">Filter work by discipline or explore post-production color grade transformations.</p>
+
+        <div class="portfolio-filters">
+            <button class="filter-btn active" onclick="filterGallery('all')">All Work</button>
+            <button class="filter-btn" onclick="filterGallery('architecture')">Architecture & Interior</button>
+            <button class="filter-btn" onclick="filterGallery('editorial')">Editorial & Commercial</button>
+            <button class="filter-btn" onclick="filterGallery('aerial')">Aerial & Industrial</button>
+        </div>
+
+        <!-- Interactive Before/After Color Grade Slider -->
+        <h3 style="margin-bottom: 1rem; font-weight: 500;">Post-Production Polish (Drag Slider)</h3>
+        <div class="ba-container" id="ba-slider-container">
+            <div class="ba-img ba-after" style="background-image: url('https://picsum.photos/id/1033/1200/600');"></div>
+            <div class="ba-img ba-before" id="ba-before-img" style="background-image: url('https://picsum.photos/id/1033/1200/600'); filter: grayscale(100%) contrast(80%);"></div>
+            <div class="ba-slider" id="ba-drag-handle">
+                <div class="ba-button">↔</div>
+            </div>
+        </div>
+
+        <!-- Deep Dive Case Study -->
+        <div class="case-study-box">
+            <h3 style="color: var(--text-main); font-size: 1.4rem;">Featured Case Study: Modernist Villa Real Estate Focus</h3>
+            <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.5rem;">A complete visual package for a luxury coastal development project.</p>
+            
+            <div class="cs-grid">
+                <div class="cs-step">
+                    <h4>01. The Problem</h4>
+                    <p style="font-size: 0.85rem; color: var(--text-muted);">Harsh tropical midday sunlight created extreme dynamic range challenges and washed-out ambient textures across glass surfaces.</p>
+                </div>
+                <div class="cs-step">
+                    <h4>02. Creative Process</h4>
+                    <p style="font-size: 0.85rem; color: var(--text-muted);">Executed multi-exposure ambient-flasto bracketing combining natural dusk ambient exposures with targeted hand-held speedlight accents.</p>
+                </div>
+                <div class="cs-step">
+                    <h4>03. The Result</h4>
+                    <p style="font-size: 0.85rem; color: var(--text-muted);">Delivered 35 hand-composited master frames resulting in 100% pre-sale property bookings within two weeks of launch.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 3: SERVICES & PRICING PAGE -->
+    <section id="services" class="section">
+        <h2 class="section-title">Commercial Service Packages</h2>
+        <p class="section-subtitle">Transparent pricing structures tailored for editorial, real estate, and corporate production.</p>
+
+        <div class="pricing-grid">
+            <div class="price-card">
+                <h3>Editorial & Brand</h3>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.4rem;">For small businesses and individual professionals.</p>
+                <div class="price-amount">$850 <span>/ Session</span></div>
+                <ul class="feature-list">
+                    <li>Half-day shoot (up to 4 hours)</li>
+                    <li>15 fully edited, high-res deliverables</li>
+                    <li>Web & social licensing rights</li>
+                    <li>Online proofing gallery</li>
+                </ul>
+                <button class="btn btn-outline" onclick="switchTab('about')">Select Package</button>
+            </div>
+
+            <div class="price-card popular">
+                <div class="badge">Most Requested</div>
+                <h3>Commercial Architecture</h3>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.4rem;">Full-scale property and spatial portfolio captures.</p>
+                <div class="price-amount">$1,850 <span>/ Project</span></div>
+                <ul class="feature-list">
+                    <li>Full-day shoot (Interior + Exterior Dusk)</li>
+                    <li>30 hand-blended master images</li>
+                    <li>Full commercial usage rights</li>
+                    <li>RAW image preview options</li>
+                    <li>Drone aerial coverage included</li>
+                </ul>
+                <button class="btn" onclick="switchTab('about')">Select Package</button>
+            </div>
+
+            <div class="price-card">
+                <h3>Custom Production</h3>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.4rem;">Multi-day, multi-location campaigns.</p>
+                <div class="price-amount">Custom <span>/ Quote</span></div>
+                <ul class="feature-list">
+                    <li>Multi-day production coverage</li>
+                    <li>Dedicated lighting assistant</li>
+                    <li>Global location availability</li>
+                    <li>On-site tethered preview setup</li>
+                </ul>
+                <button class="btn btn-outline" onclick="switchTab('about')">Inquire for Quote</button>
+            </div>
+        </div>
+
+        <!-- 4-Step Process Timeline -->
+        <h3 class="section-title" style="font-size: 1.5rem; margin-bottom: 1.5rem;">Production Workflow</h3>
+        <div class="timeline">
+            <div class="time-step">
+                <div class="step-num">01</div>
+                <h4>Discovery</h4>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">Defining moodboards, location scouting, and shot list confirmation.</p>
+            </div>
+            <div class="time-step">
+                <div class="step-num">02</div>
+                <h4>Production</h4>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">On-site shooting with tethered monitoring for real-time adjustments.</p>
+            </div>
+            <div class="time-step">
+                <div class="step-num">03</div>
+                <h4>Post-Process</h4>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">Precision color grading, focus stacking, and retouching.</p>
+            </div>
+            <div class="time-step">
+                <div class="step-num">04</div>
+                <h4>Delivery</h4>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">Secure online gallery delivery with web and print exports.</p>
+            </div>
+        </div>
+
+        <!-- FAQ Section -->
+        <h3 class="section-title" style="font-size: 1.5rem; margin-bottom: 1.5rem;">Frequently Asked Questions</h3>
+        <div class="faq-item">
+            <button class="faq-question" onclick="toggleFaq(this)">
+                What are the image licensing terms? <span>+</span>
+            </button>
+            <div class="faq-answer">
+                All standard packages include perpetual digital commercial licensing for your website, social media, and internal print collateral. Global advertising campaigns require specialized licensing add-ons.
+            </div>
+        </div>
+        <div class="faq-item">
+            <button class="faq-question" onclick="toggleFaq(this)">
+                What is the turnaround time for proof galleries? <span>+</span>
+            </button>
+            <div class="faq-answer">
+                Initial unedited proof galleries are delivered within 48 hours of shoot completion. Final edited assets are delivered within 7 to 10 business days.
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 4: ABOUT & CONTACT PAGE -->
+    <section id="about" class="section">
+        <div class="about-grid">
+            <div class="headshot-box">
+                <img src="https://picsum.photos/id/338/600/800" alt="Professional Photographer Headshot">
+            </div>
+            <div>
+                <h2 class="section-title">The Creative Behind HLDR.PHOTO</h2>
+                <p style="color: var(--text-muted); margin-bottom: 1rem;">
+                    Hello, I'm Leyla. I specialize in visual design, commercial imagery, and spatial photography. With a background grounded in both technical digital asset engineering and visual arts, I bring structural discipline to creative imagery.
+                </p>
+                <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
+                    Whether documenting architectural developments in Panama or crafting high-converting visual assets for modern enterprises, my objective remains constant: clean, intentional, and high-impact visual delivery.
+                </p>
+                <div class="social-links">
+                    <a href="#">Instagram</a>
+                    <a href="#">Behance</a>
+                    <a href="#">LinkedIn</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contact & Inquiry Form -->
+        <div class="contact-form">
+            <h3 style="font-size: 1.6rem; margin-bottom: 0.5rem;">Initialize a Directive</h3>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 2rem;">Fill out the form below to confirm availability and receive a formal project estimate.</p>
+            
+            <form onsubmit="handleFormSubmit(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Your Name / Representative</label>
+                        <input type="text" class="form-control" placeholder="e.g., Jane Doe" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email Address</label>
+                        <input type="email" class="form-control" placeholder="name@company.com" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Project Scope</label>
+                        <select class="form-control">
+                            <option>Commercial Architecture</option>
+                            <option>Editorial & Headshots</option>
+                            <option>Drone / Industrial Capture</option>
+                            <option>Custom Retouching & Post-Production</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Estimated Budget (USD)</label>
+                        <select class="form-control">
+                            <option>$1,000 - $2,500</option>
+                            <option>$2,500 - $5,000</option>
+                            <option>$5,000+</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Project Details & Desired Timeline</label>
+                    <textarea class="form-control" rows="5" placeholder="Provide details regarding shoot location, deliverable counts, or specific dates..." required></textarea>
+                </div>
+                <button type="submit" class="btn" style="width: 100%;">Transmit Inquiry</button>
+            </form>
+        </div>
+    </section>
+
+    <script>
+        // Tab Navigation Switcher
+        function switchTab(tabId) {
+            document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
+            document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+
+            document.getElementById(tabId).classList.add('active');
+            document.getElementById('nav-' + tabId).classList.add('active');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // FAQ Toggle
+        function toggleFaq(btn) {
+            const item = btn.parentElement;
+            item.classList.toggle('open');
+            const span = btn.querySelector('span');
+            span.textContent = item.classList.contains('open') ? '−' : '+';
+        }
+
+        // Gallery Filter Handler
+        function filterGallery(category) {
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            // Additional filtering logic can be added as gallery cards scale
+        }
+
+        // Interactive Before/After Drag Slider Logic
+        const container = document.getElementById('ba-slider-container');
+        const beforeImg = document.getElementById('ba-before-img');
+        const dragHandle = document.getElementById('ba-drag-handle');
+        let isDragging = false;
+
+        if(container && dragHandle) {
+            const onMove = (x) => {
+                const rect = container.getBoundingClientRect();
+                let position = x - rect.left;
+                if (position < 0) position = 0;
+                if (position > rect.width) position = rect.width;
+                
+                const percentage = (position / rect.width) * 100;
+                beforeImg.style.width = percentage + '%';
+                dragHandle.style.left = percentage + '%';
+            };
+
+            dragHandle.addEventListener('mousedown', () => isDragging = true);
+            window.addEventListener('mouseup', () => isDragging = false);
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                onMove(e.clientX);
+            });
+
+            // Touch events for mobile compatibility
+            dragHandle.addEventListener('touchstart', () => isDragging = true);
+            window.addEventListener('touchend', () => isDragging = false);
+            window.addEventListener('touchmove', (e) => {
+                if (!isDragging) return;
+                onMove(e.touches[0].clientX);
+            });
+        }
+
+        // Form Submit Demo
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            alert('Thank you for your inquiry. HLDR.PHOTO will review your project brief and respond shortly.');
+        }
+    </script>
+</body>
+</html>
