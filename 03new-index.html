@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HLDR.PHOTO | Interactive Camera Body Interface</title>
+    <style>
+        :root {
+            --bg-dark: #050811;
+            --bg-camera: #12151c;
+            --camera-grip: #0a0c10;
+            --accent-cyan: #00e5ff;
+            --accent-blue: #0066ff;
+            --accent-red: #ff3366;
+            --text-main: #f0f6fc;
+            --text-muted: #8397b5;
+            --border-glow: rgba(0, 229, 255, 0.4);
+            --border-solid: #25334e;
+            --font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: var(--font-family);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1.5rem 1rem;
+        }
+
+        /* --- CAMERA BODY CONTAINER --- */
+        .camera-body {
+            position: relative;
+            width: 100%;
+            max-width: 1100px;
+            background: linear-gradient(145deg, #181c26, #0d1017);
+            border: 3px solid #283347;
+            border-radius: 28px;
+            padding: 2rem;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.8), inset 0 0 15px rgba(255, 255, 255, 0.05);
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            gap: 2rem;
+            margin: 0 auto;
+        }
+
+        /* Camera Top Plate & Viewfinder Ridge */
+        .camera-top-ridge {
+            position: absolute;
+            top: -22px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 280px;
+            height: 22px;
+            background: #141720;
+            border-top: 2px solid #283347;
+            border-left: 2px solid #283347;
+            border-right: 2px solid #283347;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .hotshoe {
+            width: 60px;
+            height: 8px;
+            background: #080a0e;
+            border: 1px solid #3d4f6e;
+            border-radius: 2px;
+        }
+
+        /* --- CAMERA LEFT CONTROL PANEL (DIALS & BUTTONS) --- */
+        .camera-controls-panel {
+            background: var(--camera-grip);
+            border: 1px solid var(--border-solid);
+            border-radius: 16px;
+            padding: 1.5rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+            align-items: center;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+        }
+
+        .camera-brand {
+            font-weight: 800;
+            font-size: 1.1rem;
+            letter-spacing: 2px;
+            color: #fff;
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .camera-brand span {
+            display: block;
+            font-size: 0.65rem;
+            color: var(--accent-cyan);
+            letter-spacing: 1px;
+            margin-top: 2px;
+        }
+
+        /* Physical Camera Dial Switcher */
+        .mode-dial-box {
+            text-align: center;
+            width: 100%;
+        }
+
+        .mode-dial-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+
+        .cam-btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            width: 100%;
+        }
+
+        /* Camera Button Design */
+        .cam-btn {
+            background: linear-gradient(145deg, #1e2638, #111724);
+            border: 1px solid var(--border-solid);
+            color: var(--text-main);
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.25s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .cam-btn .btn-badge {
+            font-size: 0.65rem;
+            background: rgba(0, 229, 255, 0.15);
+            color: var(--accent-cyan);
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid var(--border-glow);
+        }
+
+        .cam-btn:hover {
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+            transform: translateX(3px);
+        }
+
+        .cam-btn.active {
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            color: #000;
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.4);
+        }
+
+        .cam-btn.active .btn-badge {
+            background: #000;
+            color: var(--accent-cyan);
+            border-color: #000;
+        }
+
+        /* Status LED Light */
+        .status-led {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            box-shadow: 0 0 8px var(--accent-cyan);
+            margin: 0 auto;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* --- CAMERA LCD VIEWSCREEN --- */
+        .camera-lcd-screen {
+            background: var(--bg-dark);
+            border: 2px solid var(--border-glow);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.9), 0 0 20px rgba(0, 229, 255, 0.1);
+            min-height: 580px;
+        }
+
+        /* LCD Header Bar (HUD Data Overlay) */
+        .lcd-hud-header {
+            background: rgba(8, 12, 22, 0.95);
+            border-bottom: 1px solid var(--border-solid);
+            padding: 0.6rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: monospace;
+            font-size: 0.75rem;
+            color: var(--accent-cyan);
+        }
+
+        .hud-status-group {
+            display: flex;
+            gap: 12px;
+        }
+
+        .lcd-content {
+            padding: 2rem;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+
+        /* --- CONTENT SECTIONS INSIDE LCD SCREEN --- */
+        .lcd-section {
+            display: none;
+            animation: fadeIn 0.3s ease-in-out forwards;
+        }
+
+        .lcd-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.99); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .section-title {
+            font-size: 1.8rem;
+            color: #fff;
+            margin-bottom: 0.4rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .section-subtitle {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Grid layouts inside LCD */
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .lcd-card {
+            background: #0b111e;
+            border: 1px solid var(--border-solid);
+            border-radius: 8px;
+            overflow: hidden;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .lcd-card:hover {
+            border-color: var(--accent-cyan);
+            transform: translateY(-3px);
+        }
+
+        .lcd-card img {
+            width: 100%;
+            height: 130px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .lcd-card-body {
+            padding: 0.8rem;
+        }
+
+        .lcd-card-body h4 {
+            font-size: 0.9rem;
+            color: #fff;
+            margin-bottom: 0.2rem;
+        }
+
+        .lcd-card-body p {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* Interactive Before/After Slider inside LCD */
+        .ba-container {
+            position: relative;
+            width: 100%;
+            height: 280px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border-glow);
+            margin: 1rem 0 1.5rem 0;
+            user-select: none;
+        }
+
+        .ba-img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+        }
+
+        .ba-before {
+            width: 50%;
+            z-index: 2;
+            border-right: 2px solid var(--accent-cyan);
+        }
+
+        .ba-slider {
+            position: absolute;
+            z-index: 3;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            width: 3px;
+            background: var(--accent-cyan);
+            cursor: ew-resize;
+        }
+
+        .ba-button {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            color: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.75rem;
+            box-shadow: 0 0 10px rgba(0,229,255,0.8);
+        }
+
+        /* Forms & Inputs inside LCD */
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 0.3rem;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.6rem;
+            background: #080c14;
+            border: 1px solid var(--border-solid);
+            border-radius: 4px;
+            color: #fff;
+            font-size: 0.85rem;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent-cyan);
+        }
+
+        .btn-action {
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            color: #000;
+            font-weight: 700;
+            padding: 0.6rem 1.2rem;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.85rem;
+            box-shadow: 0 0 12px rgba(0, 229, 255, 0.3);
+            transition: all 0.2s;
+        }
+
+        .btn-action:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+
+        /* Modal Popup */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(3, 6, 12, 0.85);
+            backdrop-filter: blur(6px);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            padding: 1.5rem;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #0b111e;
+            border: 1px solid var(--border-glow);
+            border-radius: 8px;
+            max-width: 600px;
+            width: 100%;
+            padding: 1.5rem;
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: transparent;
+            border: none;
+            color: var(--accent-cyan);
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        /* Responsive Layout for Mobile Camera Body */
+        @media (max-width: 850px) {
+            .camera-body {
+                grid-template-columns: 1fr;
+            }
+            .camera-controls-panel {
+                order: 2;
+            }
+            .camera-lcd-screen {
+                order: 1;
+                min-height: 480px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- CAMERA BODY OUTER FRAME -->
+    <div class="camera-body">
+        <div class="camera-top-ridge">
+            <div class="hotshoe"></div>
+        </div>
+
+        <!-- LEFT CONTROL DIAL / PHYSICAL BUTTON NAVIGATION -->
+        <div class="camera-controls-panel">
+            <div class="camera-brand">
+                HLDR.PHOTO
+                <span>EOS R5 DIRECTIVE</span>
+            </div>
+
+            <div class="status-led"></div>
+
+            <div class="mode-dial-box">
+                <div class="mode-dial-label">CAMERA MODE DIAL</div>
+                <div class="cam-btn-group">
+                    <button class="cam-btn active" id="btn-hero" onclick="switchMode('hero', this)">
+                        <span>[M] VIEW</span>
+                        <span class="btn-badge">HERO</span>
+                    </button>
+                    <button class="cam-btn" id="btn-gallery" onclick="switchMode('gallery', this)">
+                        <span>[▶] PLAYBACK</span>
+                        <span class="btn-badge">WORK</span>
+                    </button>
+                    <button class="cam-btn" id="btn-rates" onclick="switchMode('rates', this)">
+                        <span>[ISO] RATES</span>
+                        <span class="btn-badge">PRICING</span>
+                    </button>
+                    <button class="cam-btn" id="btn-about" onclick="switchMode('about', this)">
+                        <span>[MENU] INFO</span>
+                        <span class="btn-badge">BIO/CONTACT</span>
+                    </button>
+                </div>
+            </div>
+
+            <div style="margin-top: auto; font-family: monospace; font-size: 0.65rem; color: var(--text-muted); text-align: center;">
+                BATTERY: 98%<br>
+                CARD 1: RAW 14-BIT
+            </div>
+        </div>
+
+        <!-- CAMERA REAR LCD SCREEN DISPLAY -->
+        <div class="camera-lcd-screen">
+            <!-- HUD Screen Overlay Bar -->
+            <div class="lcd-hud-header">
+                <div class="hud-status-group">
+                    <span>F/2.8</span>
+                    <span>1/250s</span>
+                    <span>ISO 100</span>
+                </div>
+                <div>
+                    <span id="hud-mode-indicator" style="background: var(--accent-cyan); color: #000; padding: 1px 6px; border-radius: 3px; font-weight: bold;">MODE: HERO</span>
+                </div>
+            </div>
+
+            <div class="lcd-content">
+                <!-- 1. HERO VIEW SECTION -->
+                <div id="lcd-hero" class="lcd-section active">
+                    <h1 class="section-title">Commercial & Spatial Photography</h1>
+                    <p class="section-subtitle">High-contrast architectural visuals, corporate portraits, and industrial coverage.</p>
+                    
+                    <div style="position: relative; border-radius: 6px; overflow: hidden; border: 1px solid var(--border-glow); margin-bottom: 1.5rem;">
+                        <img src="https://picsum.photos/id/1059/800/400" style="width: 100%; display: block;" alt="Hero Viewfinder">
+                    </div>
+
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+                        Trusted by industry leaders including SMJ Inspirations, Apex Realty, and Global Logistics.
+                    </p>
+                    <button class="btn-action" onclick="switchMode('about', document.getElementById('btn-about'))">Initialize Inquiry</button>
+                </div>
+
+                <!-- 2. GALLERY / PLAYBACK SECTION -->
+                <div id="lcd-gallery" class="lcd-section">
+                    <h2 class="section-title">Playback / Featured Projects</h2>
+                    <p class="section-subtitle">Drag slider to compare RAW vs. color-graded master deliverables.</p>
+
+                    <!-- Interactive Before/After Slider -->
+                    <div class="ba-container" id="ba-slider-container">
+                        <div class="ba-img ba-after" style="background-image: url('https://picsum.photos/id/1033/800/400');"></div>
+                        <div class="ba-img ba-before" id="ba-before-img" style="background-image: url('https://picsum.photos/id/1033/800/400'); filter: grayscale(100%) contrast(70%);"></div>
+                        <div class="ba-slider" id="ba-drag-handle">
+                            <div class="ba-button">↔</div>
+                        </div>
+                    </div>
+
+                    <div class="grid-3">
+                        <div class="lcd-card" onclick="openModal('Architectural Tech Hub', 'Comprehensive spatial and interior lighting documentation for regional tech offices.', 'https://picsum.photos/id/1060/800/600')">
+                            <img src="https://picsum.photos/id/1060/400/250" alt="Tech Hub">
+                            <div class="lcd-card-body">
+                                <h4>Tech Office Hub</h4>
+                                <p>Spatial & Interior Design</p>
+                            </div>
+                        </div>
+                        <div class="lcd-card" onclick="openModal('Executive Brand Profiles', 'High-contrast corporate headshots and dynamic workspace editorials.', 'https://picsum.photos/id/1069/800/600')">
+                            <img src="https://picsum.photos/id/1069/400/250" alt="Executive">
+                            <div class="lcd-card-body">
+                                <h4>Executive Profiles</h4>
+                                <p>Corporate Portraits</p>
+                            </div>
+                        </div>
+                        <div class="lcd-card" onclick="openModal('Panama Logistics & Ports', 'Industrial drone aerials and heavy equipment detail documentation.', 'https://picsum.photos/id/1080/800/600')">
+                            <img src="https://picsum.photos/id/1080/400/250" alt="Logistics">
+                            <div class="lcd-card-body">
+                                <h4>Maritime Infrastructure</h4>
+                                <p>Industrial Aerial Capture</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. RATES / PRICING SECTION -->
+                <div id="lcd-rates" class="lcd-section">
+                    <h2 class="section-title">Production Package Tiers</h2>
+                    <p class="section-subtitle">Transparent baseline rates for commercial assignments.</p>
+
+                    <div class="grid-3">
+                        <div style="background: #0b111e; border: 1px solid var(--border-solid); padding: 1rem; border-radius: 6px;">
+                            <h4 style="color: var(--accent-cyan);">Editorial Session</h4>
+                            <div style="font-size: 1.4rem; font-weight: bold; margin: 0.4rem 0;">$850</div>
+                            <p style="font-size: 0.75rem; color: var(--text-muted);">Half-day shoot, 15 high-res master edits, web licensing included.</p>
+                        </div>
+                        <div style="background: #0b111e; border: 1px solid var(--accent-cyan); padding: 1rem; border-radius: 6px; box-shadow: 0 0 10px rgba(0,229,255,0.15);">
+                            <h4 style="color: var(--accent-cyan);">Architecture Full</h4>
+                            <div style="font-size: 1.4rem; font-weight: bold; margin: 0.4rem 0;">$1,850</div>
+                            <p style="font-size: 0.75rem; color: var(--text-muted);">Full day shoot (Interior + Dusk exterior), 30 master edits, drone aerials included.</p>
+                        </div>
+                        <div style="background: #0b111e; border: 1px solid var(--border-solid); padding: 1rem; border-radius: 6px;">
+                            <h4 style="color: var(--accent-cyan);">Custom Directive</h4>
+                            <div style="font-size: 1.4rem; font-weight: bold; margin: 0.4rem 0;">Custom</div>
+                            <p style="font-size: 0.75rem; color: var(--text-muted);">Multi-day regional campaign coverage, custom licensing, and tethered capture.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. ABOUT / CONTACT SECTION -->
+                <div id="lcd-about" class="lcd-section">
+                    <h2 class="section-title">About & Directive Inquiry</h2>
+                    <p class="section-subtitle">Leyla Sofía — Commercial Visual Artist & Photographer.</p>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                        <div style="font-size: 0.8rem; color: var(--text-muted);">
+                            Specializing in spatial design, industrial infrastructure, and corporate editorial captures. Based in Panama with international availability.
+                        </div>
+                        <div>
+                            <form onsubmit="handleFormSubmit(event)">
+                                <div class="form-group">
+                                    <label>Client Name / Agency</label>
+                                    <input type="text" class="form-control" placeholder="Name" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Email Address</label>
+                                    <input type="email" class="form-control" placeholder="Email" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Project Scope</label>
+                                    <textarea class="form-control" rows="3" placeholder="Brief description..." required></textarea>
+                                </div>
+                                <button type="submit" class="btn-action" style="width: 100%;">Transmit Brief</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Case Study Lightbox -->
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal()">×</button>
+            <h3 id="modal-title" style="color: #fff; margin-bottom: 0.4rem;"></h3>
+            <p id="modal-desc" style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;"></p>
+            <img id="modal-img" src="" style="width: 100%; border-radius: 6px; border: 1px solid var(--border-glow);" alt="Modal Preview">
+        </div>
+    </div>
+
+    <script>
+        // Camera Mode Dial Navigation Switcher
+        function switchMode(modeId, btn) {
+            document.querySelectorAll('.lcd-section').forEach(sec => sec.classList.remove('active'));
+            document.querySelectorAll('.cam-btn').forEach(b => b.classList.remove('active'));
+
+            document.getElementById('lcd-' + modeId).classList.add('active');
+            btn.classList.add('active');
+
+            // Update LCD HUD Indicator
+            const indicator = document.getElementById('hud-mode-indicator');
+            indicator.textContent = 'MODE: ' + modeId.toUpperCase();
+        }
+
+        // Before/After Drag Slider Logic
+        const container = document.getElementById('ba-slider-container');
+        const beforeImg = document.getElementById('ba-before-img');
+        const dragHandle = document.getElementById('ba-drag-handle');
+        let isDragging = false;
+
+        if(container && dragHandle) {
+            const onMove = (x) => {
+                const rect = container.getBoundingClientRect();
+                let position = x - rect.left;
+                if (position < 0) position = 0;
+                if (position > rect.width) position = rect.width;
+                
+                const percentage = (position / rect.width) * 100;
+                beforeImg.style.width = percentage + '%';
+                dragHandle.style.left = percentage + '%';
+            };
+
+            dragHandle.addEventListener('mousedown', () => isDragging = true);
+            window.addEventListener('mouseup', () => isDragging = false);
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                onMove(e.clientX);
+            });
+
+            dragHandle.addEventListener('touchstart', () => isDragging = true);
+            window.addEventListener('touchend', () => isDragging = false);
+            window.addEventListener('touchmove', (e) => {
+                if (!isDragging) return;
+                onMove(e.touches[0].clientX);
+            });
+        }
+
+        // Lightbox Modal Functions
+        function openModal(title, desc, imgSrc) {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-desc').textContent = desc;
+            document.getElementById('modal-img').src = imgSrc;
+            document.getElementById('modal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('active');
+        }
+
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            alert('Project brief submitted via camera link! HLDR.PHOTO will evaluate and respond shortly.');
+        }
+    </script>
+</body>
+</html>
